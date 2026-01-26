@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon src/index.ts"
   },
   "repository": {
     "type": "git",
@@ -17,5 +18,18 @@
   "bugs": {
     "url": "https://github.com/ZahraaZahir/node-folder-watcher/issues"
   },
-  "homepage": "https://github.com/ZahraaZahir/node-folder-watcher#readme"
+  "homepage": "https://github.com/ZahraaZahir/node-folder-watcher#readme",
+  "dependencies": {
+    "chokidar": "^5.0.0",
+    "express": "^5.2.1",
+    "path": "^0.12.7"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.0.10",
+    "jest": "^30.2.0",
+    "nodemon": "^3.1.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
 }
