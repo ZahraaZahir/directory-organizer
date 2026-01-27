@@ -45,8 +45,6 @@ watcher.on('add', async (filePath) => {
     await fs.rename(filePath, destinationPath);
     console.log(`[MOVED] ${fileName} to processed_files`);
   } catch (err: any) {
-    console.log(
-      `[ERROR] Failed to process ${fileName} with these details: ${err}`,
-    );
+    console.log(`[ERROR] Failed to process ${fileName}:`, err);
   }
 });
