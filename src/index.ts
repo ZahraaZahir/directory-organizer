@@ -1,6 +1,7 @@
 import express, {Request, Response} from 'express';
 import chokidar from 'chokidar';
 import path from 'path';
+import * as fs from 'fs/promises';
 
 const PORT = 3000;
 const watchFolder = path.join(process.env.HOME || '', 'Downloads');
@@ -31,7 +32,21 @@ const watcher = chokidar.watch(watchFolder, {
   depth: 0,
 });
 
-watcher.on('add', (filePath) => {
+watcher.on('add', async (filePath) => {
   const fileName = path.basename(filePath);
   console.log(`[DETECTED] New file found: ${fileName}`);
+  const destinationPath = path.join(
+    __dirname,
+    '..',
+    'processed_files',
+    fileName,
+  );
+  try {
+    await fs.rename(filePath, destinationPath);
+    console.log(`[MOVED] ${fileName} to processed_files`);
+  } catch (err: any) {
+    console.log(
+      `[ERROR] Failed to process ${fileName} with these details: ${err}`,
+    );
+  }
 });
