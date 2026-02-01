@@ -51,7 +51,7 @@ const watcher = chokidar.watch(watchFolder, {
   depth: 0,
 });
 
-const processedFilesRoot = path.join(__dirname, '..', 'processed_files');
+const processedFilesRoot = path.join(watchFolder, 'processed_files');
 
 (async () => {
   try {
