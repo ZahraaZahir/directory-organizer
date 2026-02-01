@@ -1,12 +1,43 @@
+import 'dotenv/config';
 import express, {Request, Response} from 'express';
 import chokidar from 'chokidar';
 import path from 'path';
 import fs from 'fs/promises';
+import {PrismaClient, FileStatus} from '@prisma/client';
+import {PrismaPg} from '@prisma/adapter-pg';
+import {fileURLToPath} from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const PORT = 3000;
-const watchFolder = path.join(process.env.HOME || '', 'Downloads');
+const watchFolder = path.join(process.env.HOME || '', 'test-watch-folder');
 
 const app = express();
+
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+  console.error('DATABASE_URL environment variable is not set.');
+  process.exit(1);
+}
+
+let adapterConfig;
+try {
+  const u = new URL(databaseUrl);
+  adapterConfig = {
+    host: u.hostname,
+    port: Number(u.port) || 5432,
+    user: u.username,
+    password: u.password,
+    database: u.pathname.replace(/^\//, ''),
+  };
+} catch (e) {
+  adapterConfig = {connectionString: databaseUrl};
+}
+
+const adapter = new PrismaPg(adapterConfig);
+const prisma = new PrismaClient({adapter: adapter});
 
 app.get('/', (req: Request, res: Response) => {
   res.send('<h1>Folder Mover is running!</h1>');
@@ -83,10 +114,25 @@ watcher.on('add', async (filePath) => {
   const finalDestinationPath = path.join(finalDestinationFolder, fileName);
 
   try {
+    const stat = await fs.stat(filePath);
+    const fileSize = stat.size;
+
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     await fs.rename(filePath, finalDestinationPath);
     console.log(`[SORTED] ${fileName} to ${destinationSubfolder}/`);
+
+    await prisma.fileLog.create({
+      data: {
+        originalName: fileName,
+        originalPath: filePath,
+        fileSize: fileSize,
+        fileExtension: fileExtension,
+        movedToPath: finalDestinationPath,
+        status: FileStatus.SUCCESS,
+      },
+    });
+    console.log(`[DB] Logged ${fileName} to database.`);
   } catch (err: any) {
     console.error(`[ERROR] Failed to sort ${fileName}:`, err);
   }
