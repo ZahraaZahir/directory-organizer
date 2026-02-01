@@ -1,5 +1,5 @@
 {
-  "name": "folder-watcher",
+  "name": "directory-organizer",
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
@@ -12,15 +12,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ZahraaZahir/node-folder-watcher.git"
+    "url": "git+https://github.com/ZahraaZahir/directory-organizer.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/ZahraaZahir/node-folder-watcher/issues"
+    "url": "https://github.com/ZahraaZahir/directory-organizer/issues"
   },
-  "homepage": "https://github.com/ZahraaZahir/node-folder-watcher#readme",
+  "homepage": "https://github.com/ZahraaZahir/directory-organizer#readme",
   "dependencies": {
     "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
