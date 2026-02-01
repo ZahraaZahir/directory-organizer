@@ -82,7 +82,7 @@ const processedFilesRoot = path.join(__dirname, '..', 'processed_files');
 
 watcher.on('add', async (filePath) => {
   const fileName = path.basename(filePath);
-  const fileExtension = path.extname(fileName).toLocaleLowerCase();
+  const fileExtension = path.extname(fileName).toLowerCase();
 
   console.log(
     `[DETECTED] New file found: ${fileName} (Extension: ${fileExtension})`,
