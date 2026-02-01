@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import {PrismaClient, FileStatus} from '@prisma/client';
 import {PrismaPg} from '@prisma/adapter-pg';
+import {Pool} from 'pg';
 import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -22,21 +23,8 @@ if (!databaseUrl) {
   process.exit(1);
 }
 
-let adapterConfig;
-try {
-  const u = new URL(databaseUrl);
-  adapterConfig = {
-    host: u.hostname,
-    port: Number(u.port) || 5432,
-    user: u.username,
-    password: u.password,
-    database: u.pathname.replace(/^\//, ''),
-  };
-} catch (e) {
-  adapterConfig = {connectionString: databaseUrl};
-}
-
-const adapter = new PrismaPg(adapterConfig);
+const pool = new Pool({connectionString: databaseUrl});
+const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({adapter: adapter});
 
 app.get('/', (req: Request, res: Response) => {
