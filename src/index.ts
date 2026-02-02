@@ -6,15 +6,11 @@ import fs from 'fs/promises';
 import {PrismaClient, FileStatus} from '@prisma/client';
 import {PrismaPg} from '@prisma/adapter-pg';
 import {Pool} from 'pg';
-import {fileURLToPath} from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const PORT = 3050;
 
-const PORT = 3000;
 const watchFolder = path.join(process.env.HOME || '', 'test-watch-folder');
-
-const app = express();
+const processedFilesRoot = path.join(watchFolder, 'processed_files');
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -27,9 +23,7 @@ const pool = new Pool({connectionString: databaseUrl});
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({adapter: adapter});
 
-app.get('/', (req: Request, res: Response) => {
-  res.send('<h1>Folder Mover is running!</h1>');
-});
+const app = express();
 
 app.get('/status', (req: Request, res: Response) => {
   res.json({
@@ -39,21 +33,72 @@ app.get('/status', (req: Request, res: Response) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`[SERVER] API running at http://localhost:${PORT}`);
+app.get('/', async (req: Request, res: Response) => {
+  try {
+    const logs = await prisma.fileLog.findMany({
+      orderBy: {processedAt: 'desc'},
+      take: 20,
+    });
+
+    const logRows =
+      logs.length > 0
+        ? logs
+            .map(
+              (log) => `
+          <tr>
+            <td>${log.originalName}</td>
+            <td>${log.status}</td>
+            <td>${log.movedToPath || 'N/A'}</td>
+            <td>${new Date(log.processedAt).toLocaleString()}</td>
+          </tr>`,
+            )
+            .join('')
+        : '<tr><td colspan="4">No files processed yet.</td></tr>';
+
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Folder Mover</title>
+        <style>
+          body { font-family: sans-serif; padding: 30px; background-color: #f8f9fa; }
+          h1 { color: #333; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+          th, td { padding: 12px; text-align: left; border: 1px solid #dee2e6; }
+          th { background-color: #212529; color: white; }
+          tr:nth-child(even) { background-color: #f2f2f2; }
+        </style>
+      </head>
+      <body>
+        <h1>Folder Mover is a bit!</h1> <!-- Your Header is here now -->
+        <p>Latest Activity (Top 20 files):</p>
+        <table>
+          <thead>
+            <tr>
+              <th>File Name</th>
+              <th>Status</th>
+              <th>Destination</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${logRows}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `);
+  } catch (error: any) {
+    console.error('[DASHBOARD ERROR]', error.message);
+    res
+      .status(500)
+      .send(
+        `<h1>Folder Mover is running!</h1><p>Error loading logs: ${error.message}</p>`,
+      );
+  }
 });
 
-console.log(`[WATCHER] Watching for files in: ${watchFolder}`);
-
-const watcher = chokidar.watch(watchFolder, {
-  ignored: /(^|[\/\\])\../,
-  persistent: true,
-  depth: 0,
-});
-
-const processedFilesRoot = path.join(watchFolder, 'processed_files');
-
-(async () => {
+async function startApp() {
   try {
     await fs.mkdir(processedFilesRoot, {recursive: true});
     await fs.mkdir(path.join(processedFilesRoot, 'images'), {recursive: true});
@@ -61,67 +106,69 @@ const processedFilesRoot = path.join(watchFolder, 'processed_files');
       recursive: true,
     });
     await fs.mkdir(path.join(processedFilesRoot, 'other'), {recursive: true});
-    console.log('[SETUP] Ensured all destination folders exist.');
+    console.log('[SETUP] Folders ready.');
+
+    app.listen(PORT, () => {
+      console.log(`[SERVER] Running at http://localhost:${PORT}`);
+    });
+
+    const watcher = chokidar.watch(watchFolder, {
+      ignored: /(^|[\/\\])\../,
+      persistent: true,
+      depth: 0,
+    });
+
+    watcher.on('add', handleNewFile);
+    console.log(`[WATCHER] Watching: ${watchFolder}`);
   } catch (error) {
-    console.error('[SETUP ERROR] Could not create necessary folders:', error);
+    console.error('[FATAL ERROR] Failed to start:', error);
     process.exit(1);
   }
-})();
+}
 
-watcher.on('add', async (filePath) => {
+async function handleNewFile(filePath: string) {
   const fileName = path.basename(filePath);
   const fileExtension = path.extname(fileName).toLowerCase();
 
-  console.log(
-    `[DETECTED] New file found: ${fileName} (Extension: ${fileExtension})`,
-  );
+  if (filePath.includes(processedFilesRoot)) return;
+
+  console.log(`[DETECTED] ${fileName}`);
 
   let destinationSubfolder = 'other';
-
-  switch (fileExtension) {
-    case '.jpg':
-    case '.jpeg':
-    case '.png':
-    case '.gif':
-    case '.webp':
-      destinationSubfolder = 'images';
-      break;
-    case '.pdf':
-    case '.doc':
-    case '.docx':
-    case '.txt':
-    case '.csv':
-      destinationSubfolder = 'documents';
-      break;
+  if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(fileExtension)) {
+    destinationSubfolder = 'images';
+  } else if (
+    ['.pdf', '.doc', '.docx', '.txt', '.csv'].includes(fileExtension)
+  ) {
+    destinationSubfolder = 'documents';
   }
 
-  const finalDestinationFolder = path.join(
+  const finalPath = path.join(
     processedFilesRoot,
     destinationSubfolder,
+    fileName,
   );
-  const finalDestinationPath = path.join(finalDestinationFolder, fileName);
 
   try {
     const stat = await fs.stat(filePath);
-    const fileSize = stat.size;
-
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    await fs.rename(filePath, finalDestinationPath);
-    console.log(`[SORTED] ${fileName} to ${destinationSubfolder}/`);
+    await fs.rename(filePath, finalPath);
 
     await prisma.fileLog.create({
       data: {
         originalName: fileName,
         originalPath: filePath,
-        fileSize: fileSize,
+        fileSize: stat.size,
         fileExtension: fileExtension,
-        movedToPath: finalDestinationPath,
+        movedToPath: finalPath,
         status: FileStatus.SUCCESS,
       },
     });
-    console.log(`[DB] Logged ${fileName} to database.`);
-  } catch (err: any) {
-    console.error(`[ERROR] Failed to sort ${fileName}:`, err);
+    console.log(`[SORTED] ${fileName}`);
+  } catch (err) {
+    console.error(`[ERROR] ${fileName}:`, err);
   }
-});
+}
+
+startApp();
