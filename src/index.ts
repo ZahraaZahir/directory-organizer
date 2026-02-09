@@ -59,7 +59,7 @@ app.get('/', async (req: Request, res: Response) => {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Folder Mover</title>
+        <title>Directory Organizer</title>
         <style>
           body { font-family: sans-serif; padding: 30px; background-color: #f8f9fa; }
           h1 { color: #333; }
@@ -70,7 +70,7 @@ app.get('/', async (req: Request, res: Response) => {
         </style>
       </head>
       <body>
-        <h1>Folder Mover is a bit!</h1> <!-- Your Header is here now -->
+        <h1>Directory Organizer is Running!</h1> <!-- Your Header is here now -->
         <p>Latest Activity (Top 20 files):</p>
         <table>
           <thead>
@@ -93,7 +93,7 @@ app.get('/', async (req: Request, res: Response) => {
     res
       .status(500)
       .send(
-        `<h1>Folder Mover is running!</h1><p>Error loading logs: ${error.message}</p>`,
+        `<h1>Directory Organizer is running!</h1><p>Error loading logs: ${error.message}</p>`,
       );
   }
 });
