@@ -139,8 +139,19 @@ async function handleNewFile(filePath: string) {
       },
     });
     console.log(`[SORTED] ${fileName} -> ${finalFileName}`);
-  } catch (error) {
+  } catch (error: any) {
     console.error(`[ERROR] ${fileName}:`, error);
+    await prisma.fileLog.create({
+      data: {
+        originalName: fileName,
+        originalPath: filePath,
+        fileSize: 0,
+        fileExtension: fileExtension,
+        movedToPath: 'FAILED',
+        status: FileStatus.FAILED,
+        errorMessage: error.message,
+      },
+    });
   }
 }
 
