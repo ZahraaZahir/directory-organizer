@@ -99,6 +99,7 @@ async function loadConfig() {
     process.exit(1);
   }
 }
+
 async function handleNewFile(filePath: string) {
   const fileName = path.basename(filePath);
   const fileExtension = path.extname(fileName).toLowerCase();
@@ -115,11 +116,11 @@ async function handleNewFile(filePath: string) {
     ? matchedRule.folderName
     : appConfig.defaultFolder;
 
-  const finalPath = path.join(
-    processedFilesRoot,
-    destinationSubfolder,
-    fileName,
-  );
+  const targetFolder = path.join(processedFilesRoot, destinationSubfolder);
+
+  const finalPath = await getUniquePath(targetFolder, fileName);
+
+  const finalFileName = path.basename(finalPath);
 
   try {
     const stat = await fs.stat(filePath);
@@ -137,10 +138,33 @@ async function handleNewFile(filePath: string) {
         status: FileStatus.SUCCESS,
       },
     });
-    console.log(`[SORTED] ${fileName}`);
+    console.log(`[SORTED] ${fileName} -> ${finalFileName}`);
   } catch (error) {
     console.error(`[ERROR] ${fileName}:`, error);
   }
+}
+
+async function getUniquePath(
+  destinationFolder: string,
+  fileName: string,
+): Promise<string> {
+  let counter = 1;
+  const splitFile = path.parse(fileName);
+  let currentPath = path.join(destinationFolder, fileName);
+  let exists = true;
+  while (exists) {
+    try {
+      await fs.access(currentPath);
+      currentPath = path.join(
+        destinationFolder,
+        `${splitFile.name}(${counter})${splitFile.ext}`,
+      );
+      counter++;
+    } catch (error) {
+      exists = false;
+    }
+  }
+  return currentPath;
 }
 
 startApp();
