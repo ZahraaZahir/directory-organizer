@@ -1,0 +1,13 @@
+{
+  "rules": [
+    {
+      "folderName": "images",
+      "extensions": [".jpg", ".jpeg", ".png", ".gif", ".webp"]
+    },
+    {
+      "folderName": "documents",
+      "extensions": [".pdf", ".doc", ".docx", ".txt", ".csv"]
+    }
+  ],
+  "defaultFolder": "other"
+}

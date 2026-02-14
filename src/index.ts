@@ -6,6 +6,9 @@ import fs from 'fs/promises';
 import {PrismaClient, FileStatus} from '@prisma/client';
 import {PrismaPg} from '@prisma/adapter-pg';
 import {Pool} from 'pg';
+import {AppConfig} from './types.js';
+
+let appConfig: AppConfig;
 
 const PORT = 3050;
 
@@ -88,24 +91,28 @@ app.get('/', async (req: Request, res: Response) => {
       </body>
       </html>
     `);
-  } catch (error: any) {
-    console.error('[DASHBOARD ERROR]', error.message);
+  } catch (error) {
+    console.error('[DASHBOARD ERROR]', error);
     res
       .status(500)
       .send(
-        `<h1>Directory Organizer is running!</h1><p>Error loading logs: ${error.message}</p>`,
+        `<h1>Directory Organizer is running!</h1><p>Error loading logs: ${error}</p>`,
       );
   }
 });
 
 async function startApp() {
+  await loadConfig();
   try {
     await fs.mkdir(processedFilesRoot, {recursive: true});
-    await fs.mkdir(path.join(processedFilesRoot, 'images'), {recursive: true});
-    await fs.mkdir(path.join(processedFilesRoot, 'documents'), {
+    for (const rule of appConfig.rules) {
+      await fs.mkdir(path.join(processedFilesRoot, rule.folderName), {
+        recursive: true,
+      });
+    }
+    await fs.mkdir(path.join(processedFilesRoot, appConfig.defaultFolder), {
       recursive: true,
     });
-    await fs.mkdir(path.join(processedFilesRoot, 'other'), {recursive: true});
     console.log('[SETUP] Folders ready.');
 
     app.listen(PORT, () => {
@@ -121,11 +128,24 @@ async function startApp() {
     watcher.on('add', handleNewFile);
     console.log(`[WATCHER] Watching: ${watchFolder}`);
   } catch (error) {
-    console.error('[FATAL ERROR] Failed to start:', error);
+    console.error('[ERROR] Failed to start:', error);
     process.exit(1);
   }
 }
 
+async function loadConfig() {
+  const configPath = path.join(process.cwd(), 'config.json');
+  try {
+    const configData = await fs.readFile(configPath, 'utf-8');
+    appConfig = JSON.parse(configData) as AppConfig;
+    console.log(
+      `[CONFIG] Loaded rules for ${appConfig.rules.length} categories.`,
+    );
+  } catch (error) {
+    console.log(error);
+    process.exit(1);
+  }
+}
 async function handleNewFile(filePath: string) {
   const fileName = path.basename(filePath);
   const fileExtension = path.extname(fileName).toLowerCase();
@@ -134,14 +154,13 @@ async function handleNewFile(filePath: string) {
 
   console.log(`[DETECTED] ${fileName}`);
 
-  let destinationSubfolder = 'other';
-  if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(fileExtension)) {
-    destinationSubfolder = 'images';
-  } else if (
-    ['.pdf', '.doc', '.docx', '.txt', '.csv'].includes(fileExtension)
-  ) {
-    destinationSubfolder = 'documents';
-  }
+  const matchedRule = appConfig.rules.find((rule) =>
+    rule.extensions.includes(fileExtension),
+  );
+
+  const destinationSubfolder = matchedRule
+    ? matchedRule.folderName
+    : appConfig.defaultFolder;
 
   const finalPath = path.join(
     processedFilesRoot,
@@ -166,8 +185,8 @@ async function handleNewFile(filePath: string) {
       },
     });
     console.log(`[SORTED] ${fileName}`);
-  } catch (err) {
-    console.error(`[ERROR] ${fileName}:`, err);
+  } catch (error) {
+    console.error(`[ERROR] ${fileName}:`, error);
   }
 }
 
